@@ -28,7 +28,7 @@
                         <div class="header-logo logo animated" data-animate="fadeInDown" data-delay=".65">
                             <div class="header-logo logo animated" data-animate="fadeInDown" data-delay=".65">
                                 <div class="logo-link">
-                                    <a href="./">
+                                    <a href="https://expolab.org/">
                                         <img class="logo-light custom-logo-2" src="images/sponsors/expolab-sept2026-logo.png" alt="logo">
                                     </a>
                                     <a href="https://resilientdb.com">
@@ -2789,7 +2789,15 @@
                     borderColor: '#59b4a9',
                     backgroundColor: 'rgba(89, 180, 169, 0.35)',
                     tension: 0.1,
-                    fill: false
+                    fill: false,
+                    segment: {
+                        borderDash: (ctx) => {
+                            const i = ctx.p0DataIndex;
+                            if (i >= 10 && i < 20) {
+                                return [6, 6];}
+                            return [];
+                        }
+                    }
                     },
                     {
                     label: 'Autobahn',
@@ -2824,7 +2832,19 @@
                 },
                 plugins: {
                     legend: {
-                    position: 'top'}
+                        position: 'top'
+                    },
+                    title: {
+                        display: true,
+                        text: [
+                            'f replica partitions  →  f+1 replica partitions  →  f replica partitions'
+                        ],
+                        position: 'bottom',
+                        color: '#ffffff',
+                        font: {
+                            size: 12
+                        }
+                    }
                 }
                 }
             });
