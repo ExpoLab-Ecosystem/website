@@ -15,6 +15,66 @@
     <link rel="stylesheet" href="assets/css/style-dark.css?ver=210">
     <!-- Extra CSS -->
     <link rel="stylesheet" href="assets/css/theme.css?ver=210">
+    <style>
+        .partition-stage-labels {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 4px;
+            width: 100%;
+            max-width: 520px;
+            margin: 1px auto 0;
+            box-sizing: border-box;
+        }
+
+        .partition-stage {
+            min-width: 0;
+            box-sizing: border-box;
+            padding: 6px 4px;
+            color: #eff6ff;
+            text-align: center;
+            font-size: 11px;
+            line-height: 1.3;
+        }
+
+        .partition-stage strong,
+        .partition-stage-detail {
+            display: block;
+        }
+
+        .partition-stage-1 {
+            border: 1px solid rgba(89, 180, 169, 0.75);
+            background: rgba(89, 180, 169, 0.16);
+        }
+
+        .partition-stage-2 {
+            border: 1px solid rgba(255, 87, 51, 0.75);
+            background: rgba(255, 87, 51, 0.16);
+        }
+
+        .partition-stage-3 {
+            border: 1px solid rgba(120, 151, 255, 0.75);
+            background: rgba(120, 151, 255, 0.16);
+        }
+
+        @media (max-width: 640px) {
+            .partition-stage-labels {
+                gap: 3px;
+            }
+
+            .partition-stage {
+                padding: 5px 2px;
+                font-size: 10px;
+                line-height: 1.2;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .partition-stage {
+                padding: 4px 1px;
+                font-size: 9px;
+            }
+        }
+    </style>
 </head>
 
 <body class="nk-body body-wider theme-dark mode-onepage">
@@ -452,13 +512,24 @@
                                                 <div class="number">Cassandra</div>
                                                 <div class="label">Protocol</div>
                                             </div>
-                                            <div class="stat">
+                                            <div class="stat" style="transform: translateY(-6px);">
                                                 <div class="number">Autobahn</div>
                                                 <div class="label">Protocol</div>
                                             </div>
                                         </div>
                                         <div class="chart animated" data-animate="fadeInUp" data-delay=".1">
                                             <canvas id="chart8" width="450" height="300"></canvas>
+                                            <div class="partition-stage-labels" aria-label="Partition stages">
+                                                <div class="partition-stage partition-stage-1">
+                                                    <strong>Stage 1</strong><span class="partition-stage-detail">f partitions</span>
+                                                </div>
+                                                <div class="partition-stage partition-stage-2">
+                                                    <strong>Stage 2</strong><span class="partition-stage-detail">f+1 partitions</span>
+                                                </div>
+                                                <div class="partition-stage partition-stage-3">
+                                                    <strong>Stage 3</strong><span class="partition-stage-detail">f partitions</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2739,6 +2810,7 @@
               scales: {
                 y: {
                   beginAtZero: false,
+                  max: 1100000,
                   title: {
                     display: true,
                     text: 'Client Latency (ms)'
@@ -2768,6 +2840,54 @@
 
             var ctx = el.getContext('2d');
 
+            const partitionStages = [
+                {title: 'Stage 1', detail: 'f partitions', color: '89, 180, 169'},
+                {title: 'Stage 2', detail: 'f+1 partitions', color: '255, 87, 51'},
+                {title: 'Stage 3', detail: 'f partitions', color: '120, 151, 255'}
+            ];
+            const partitionStagesPlugin = {
+                id: 'partitionStages',
+                afterLayout(chart) {
+                    const stageLabels = chart.canvas.parentElement.querySelector('[aria-label="Partition stages"]');
+                    if (!stageLabels || !chart.chartArea) return;
+
+                    stageLabels.style.marginLeft = `${chart.chartArea.left}px`;
+                    stageLabels.style.width = `${chart.chartArea.width}px`;
+                    stageLabels.style.marginRight = '0';
+                },
+                beforeDraw(chart) {
+                    const {ctx, chartArea} = chart;
+                    if (!chartArea) return;
+
+                    ctx.save();
+                    ctx.fillStyle = `rgba(${partitionStages[0].color}, 0.07)`;
+                    ctx.fillRect(
+                        chartArea.left,
+                        chartArea.top,
+                        chartArea.width,
+                        chartArea.height
+                    );
+                    ctx.restore();
+                },
+                afterDatasetsDraw(chart) {
+                    const {ctx, chartArea, scales} = chart;
+                    const x = scales.x;
+                    if (!chartArea || !x) return;
+
+                    ctx.save();
+                    ctx.setLineDash([4, 4]);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(239, 246, 255, 0.7)';
+                    [x.getPixelForTick(10), x.getPixelForTick(20)].forEach(boundary => {
+                        ctx.beginPath();
+                        ctx.moveTo(boundary, chartArea.top);
+                        ctx.lineTo(boundary, chartArea.bottom);
+                        ctx.stroke();
+                    });
+                    ctx.restore();
+                },
+            };
+
             new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -2788,13 +2908,23 @@
                     526125, 526381],
                     borderColor: '#59b4a9',
                     backgroundColor: 'rgba(89, 180, 169, 0.35)',
+                    borderWidth: 2,
                     tension: 0.1,
                     fill: false,
                     segment: {
+                        borderColor: (ctx) => {
+                            const i = ctx.p0DataIndex;
+                            if (i >= 10 && i < 20) return '#a855f7';
+                            return '#59b4a9';
+                        },
+                        borderWidth: (ctx) => {
+                            const i = ctx.p0DataIndex;
+                            if (i >= 10 && i < 20) return 4;
+                            return 2;
+                        },
                         borderDash: (ctx) => {
                             const i = ctx.p0DataIndex;
-                            if (i >= 10 && i < 20) {
-                                return [6, 6];}
+                            if (i >= 10 && i < 20) return [6, 4];
                             return [];
                         }
                     }
@@ -2810,43 +2940,80 @@
                     802230, 813733],
                     borderColor: '#FF5733',
                     backgroundColor: 'rgba(255, 87, 51, 0.35)',
+                    borderWidth: 2,
                     tension: 0.1,
                     fill: false
                     }
                 ]
                 },
                 options: {
-                scales: {
-                    y: {
-                    beginAtZero: false,
-                    title: {
-                        display: true,
-                        text: 'Throughput (TPS)'
-                    }
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1.5,
+                    layout: {
+                        padding: {
+                            top: 2,
+                            bottom: 4
+                        }
                     },
-                    x: {
-                    title: {
-                        display: true,
-                        text: 'Time (s)'}
-                    }
-                },
-                plugins: {
-                    legend: {
-                        position: 'top'
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Throughput (TPS)',
+                                color: '#eff6ff'
+                            },
+                            ticks: {
+                                color: '#dbe7f3',
+                                maxTicksLimit: 6
+                            },
+                            grid: {
+                                color: 'rgba(239, 246, 255, 0.12)',
+                                drawBorder: false
+                            },
+                            border: {
+                                display: false
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time (s)',
+                                color: '#eff6ff'
+                            },
+                            ticks: {
+                                color: '#dbe7f3',
+                                maxTicksLimit: 8,
+                                maxRotation: 0
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
                     },
-                    title: {
-                        display: true,
-                        text: [
-                            'f replica partitions  →  f+1 replica partitions  →  f replica partitions'
-                        ],
-                        position: 'bottom',
-                        color: '#ffffff',
-                        font: {
-                            size: 12
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#eff6ff',
+                                boxWidth: 18,
+                                padding: 10,
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            onClick(event, legendItem, legend) {
+                                if (typeof legendItem.datasetIndex !== 'number') return;
+                                Chart.defaults.plugins.legend.onClick.call(this, event, legendItem, legend);
+                            }
+                        },
+                        title: {
+                            display: false
                         }
                     }
-                }
-                }
+                },
+                plugins: [partitionStagesPlugin]
             });
             });
         </script>
